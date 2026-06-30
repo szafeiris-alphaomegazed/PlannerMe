@@ -612,12 +612,15 @@ python3 -m venv .venv
 Then add the MCP server to Claude Code:
 
 ```bash
-claude mcp add --scope local \
+claude mcp add plannerme \
+  --scope local \
   --transport stdio \
   --env PLANNERME_ENV_FILE=/path/to/planner-me/.env \
-  plannerme \
   -- /path/to/planner-me/.venv/bin/plannerme-mcp
 ```
+
+Place `--env` after the server name. In current Claude Code versions, `--env`
+accepts multiple values and can consume the server name if it appears earlier.
 
 For a user-wide Claude Code setup, use `--scope user` instead of
 `--scope local`.
