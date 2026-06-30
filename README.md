@@ -120,7 +120,7 @@ plannerme me
 
 ### Projects
 
-Show all projects visible to your API key:
+Show the first page of projects visible to your API key:
 
 ```bash
 plannerme projects
@@ -138,11 +138,33 @@ Print raw JSON:
 plannerme projects --me --json
 ```
 
+List commands are paged. In an interactive terminal, press Enter or Space for
+the next page, or `q` to quit. In scripts, only one page is printed.
+
+Fetch a specific page:
+
+```bash
+plannerme projects --page 2
+```
+
+Change the API page size:
+
+```bash
+plannerme tasks --page-size 10
+```
+
+Print one page without prompting:
+
+```bash
+plannerme logs --week --no-pager
+```
+
 ### Tasks
 
-By default, `tasks` shows all open work packages visible to your API key.
+By default, `tasks` shows the first page of open work packages visible to your
+API key.
 
-Show all open tasks:
+Show open tasks:
 
 ```bash
 plannerme tasks
@@ -183,6 +205,12 @@ Print raw JSON:
 
 ```bash
 plannerme tasks --project clienta --json
+```
+
+JSON output is also paged:
+
+```bash
+plannerme tasks --project clienta --page 2 --page-size 10 --json
 ```
 
 ### Log Time
@@ -452,6 +480,9 @@ Print raw JSON:
 plannerme logs --week --json
 ```
 
+Paged log output shows the hours total for the current page. Use `--page` to
+move through the range without loading every time entry at once.
+
 ### Activities
 
 Show time-entry activity information:
@@ -540,6 +571,10 @@ Available MCP tools include:
 `plannerme_log_time` defaults to `dry_run: true`, and `plannerme_autolog`
 defaults to `apply: false`, so models preview writes unless explicitly asked to
 create entries.
+
+The MCP list tools `plannerme_projects`, `plannerme_tasks`, and
+`plannerme_logs` accept `page` and `page_size` arguments, so AI clients can page
+through results instead of loading everything at once.
 
 ## Typical Flow
 

@@ -5,10 +5,34 @@ import json
 import urllib.error
 import urllib.parse
 import urllib.request
+from dataclasses import dataclass
 from typing import Any
 
 from plannerme.errors import PlannerUsError
 from plannerme.settings import PlannerMeSettings
+
+
+@dataclass(frozen=True)
+class CollectionPage:
+    elements: list[dict[str, Any]]
+    count: int
+    total: int
+    offset: int
+    page_size: int
+
+    @property
+    def has_next(self) -> bool:
+        return self.offset * self.page_size < self.total and self.count > 0
+
+    @property
+    def start_index(self) -> int:
+        if self.count == 0:
+            return 0
+        return (self.offset - 1) * self.page_size + 1
+
+    @property
+    def end_index(self) -> int:
+        return self.start_index + self.count - 1 if self.count else 0
 
 
 class PlannerUsClient:
@@ -56,6 +80,30 @@ class PlannerUsClient:
             if count <= 0 or len(elements) >= total:
                 return elements
             offset += 1
+
+    def collection_page(
+        self,
+        path: str,
+        params: dict[str, str] | None = None,
+        *,
+        page_size: int = 25,
+        offset: int = 1,
+    ) -> CollectionPage:
+        params = dict(params or {})
+        params["pageSize"] = str(page_size)
+        params["offset"] = str(offset)
+        page = self.get(path, params)
+        embedded = page.get("_embedded", {}) if isinstance(page, dict) else {}
+        elements = embedded.get("elements", [])
+        count = int(page.get("count", len(elements))) if isinstance(page, dict) else len(elements)
+        total = int(page.get("total", len(elements))) if isinstance(page, dict) else len(elements)
+        return CollectionPage(
+            elements=elements,
+            count=count,
+            total=total,
+            offset=offset,
+            page_size=page_size,
+        )
 
     def request(self, method: str, path: str, *, params: dict[str, str] | None = None, body: Any | None = None) -> Any:
         url = self._url(path, params)

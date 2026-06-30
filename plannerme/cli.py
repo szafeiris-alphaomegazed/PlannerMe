@@ -8,7 +8,7 @@ from typing import Any
 
 from plannerme.automation import AutomationManager
 from plannerme.autolog import AutologPlanner
-from plannerme.client import PlannerUsClient
+from plannerme.client import CollectionPage, PlannerUsClient
 from plannerme.constants import CONFIG_PATH
 from plannerme.errors import PlannerMeError
 from plannerme.services import PlannerService
@@ -34,6 +34,7 @@ class PlannerMeCLI:
         parser = self.build_parser()
         args = parser.parse_args(argv)
         try:
+            self.validate_pagination(args)
             if args.command == "config":
                 return self.handle_config(args)
 
@@ -53,45 +54,75 @@ class PlannerMeCLI:
             print(pretty_json(client.get("/users/me")))
             return 0
         if args.command == "projects":
-            projects = service.list_projects(me=args.me)
+            page = service.project_page(me=args.me, page_size=args.page_size, offset=args.page)
             if args.json:
-                print(pretty_json(projects))
+                print(pretty_json(self.page_json(page, "projects", page.elements)))
             else:
-                print_table(
-                    service.project_rows(projects),
-                    [("id", "ID"), ("identifier", "Identifier"), ("name", "Name"), ("active", "Active")],
+                self.print_paged_table(
+                    fetch_page=lambda offset: service.project_page(me=args.me, page_size=args.page_size, offset=offset),
+                    row_factory=service.project_rows,
+                    columns=[("id", "ID"), ("identifier", "Identifier"), ("name", "Name"), ("active", "Active")],
+                    first_page=page,
+                    interactive=not args.no_pager,
                 )
             return 0
         if args.command == "tasks":
-            tasks = service.list_tasks(
+            page = service.task_page(
                 project=args.project,
                 me=args.me,
                 log_tasks=args.log_tasks,
                 prefix=args.prefix,
+                page_size=args.page_size,
+                offset=args.page,
             )
             if args.json:
-                print(pretty_json(tasks))
+                print(pretty_json(self.page_json(page, "tasks", page.elements)))
             else:
-                print_table(
-                    service.task_rows(tasks),
-                    [
+                self.print_paged_table(
+                    fetch_page=lambda offset: service.task_page(
+                        project=args.project,
+                        me=args.me,
+                        log_tasks=args.log_tasks,
+                        prefix=args.prefix,
+                        page_size=args.page_size,
+                        offset=offset,
+                    ),
+                    row_factory=service.task_rows,
+                    columns=[
                         ("id", "ID"),
                         ("subject", "Subject"),
                         ("project", "Project"),
                         ("assignee", "Assignee"),
                         ("status", "Status"),
                     ],
+                    first_page=page,
+                    interactive=not args.no_pager,
                 )
             return 0
         if args.command == "logs":
             start, end = self.log_range(args)
-            entries = service.list_time_entries(start=start, end=end, me=not args.all_users, project=args.project)
+            page = service.time_entry_page(
+                start=start,
+                end=end,
+                me=not args.all_users,
+                project=args.project,
+                page_size=args.page_size,
+                offset=args.page,
+            )
             if args.json:
-                print(pretty_json(entries))
+                print(pretty_json(self.page_json(page, "entries", page.elements, {"range": {"start": start.isoformat(), "end": end.isoformat()}})))
             else:
-                print_table(
-                    service.time_entry_rows(entries),
-                    [
+                self.print_paged_table(
+                    fetch_page=lambda offset: service.time_entry_page(
+                        start=start,
+                        end=end,
+                        me=not args.all_users,
+                        project=args.project,
+                        page_size=args.page_size,
+                        offset=offset,
+                    ),
+                    row_factory=service.time_entry_rows,
+                    columns=[
                         ("date", "Date"),
                         ("hours", "Hours"),
                         ("project", "Project"),
@@ -99,9 +130,14 @@ class PlannerMeCLI:
                         ("activity", "Activity"),
                         ("comment", "Comment"),
                     ],
+                    first_page=page,
+                    interactive=not args.no_pager,
+                    footer_factory=lambda current_page: (
+                        "Page total: "
+                        f"{format_hours(sum(duration_to_hours(str(entry.get('hours', ''))) for entry in current_page.elements))} "
+                        f"hours ({start} to {end})"
+                    ),
                 )
-                total = sum(duration_to_hours(str(entry.get("hours", ""))) for entry in entries)
-                print(f"\nTotal: {format_hours(total)} hours ({start} to {end})")
             return 0
         if args.command == "log":
             result = service.create_time_entry(
@@ -380,6 +416,7 @@ class PlannerMeCLI:
         projects_parser = subparsers.add_parser("projects", help="Show PlannerUs projects.")
         projects_parser.add_argument("--me", action="store_true", help="Only projects where your user is a member.")
         projects_parser.add_argument("--json", action="store_true", help="Print raw JSON.")
+        self.add_pagination_arguments(projects_parser)
 
         tasks_parser = subparsers.add_parser("tasks", help="Show open tasks/work packages.")
         tasks_parser.add_argument("--me", action="store_true", help="Only tasks assigned to you.")
@@ -387,6 +424,7 @@ class PlannerMeCLI:
         tasks_parser.add_argument("-l", "--log-tasks", action="store_true", help="Only show tasks whose subject starts with LOG_.")
         tasks_parser.add_argument("--prefix", help="Prefix used with --log-tasks. Defaults to PLANNERUS_LOG_TASK_PREFIX.")
         tasks_parser.add_argument("--json", action="store_true", help="Print raw JSON.")
+        self.add_pagination_arguments(tasks_parser)
 
         logs_parser = subparsers.add_parser("logs", help="Show logged time for a day or ISO week.")
         logs_range = logs_parser.add_mutually_exclusive_group()
@@ -397,6 +435,7 @@ class PlannerMeCLI:
         logs_parser.add_argument("--project", help="Limit to a project id, identifier, name, or alias.")
         logs_parser.add_argument("--all-users", action="store_true", help="Show visible entries for all users.")
         logs_parser.add_argument("--json", action="store_true", help="Print raw JSON.")
+        self.add_pagination_arguments(logs_parser)
 
         log_parser = subparsers.add_parser("log", help="Create a time entry on a matching LOG_ task.")
         log_parser.add_argument("project", help="Project id, identifier, name, or alias.")
@@ -506,6 +545,99 @@ class PlannerMeCLI:
             method_parser.add_argument("--json", default=None, metavar="BODY")
         delete_parser = subparsers.add_parser("delete", help="DELETE an API v3 path.")
         delete_parser.add_argument("path")
+
+    @staticmethod
+    def add_pagination_arguments(parser: argparse.ArgumentParser) -> None:
+        parser.add_argument("--page", type=int, default=1, help="API page number to start at. Defaults to 1.")
+        parser.add_argument("--page-size", type=int, default=25, help="Rows fetched per API page. Defaults to 25.")
+        parser.add_argument("--no-pager", action="store_true", help="Print only one page without prompting for the next page.")
+
+    @staticmethod
+    def validate_pagination(args: argparse.Namespace) -> None:
+        if hasattr(args, "page") and args.page < 1:
+            raise PlannerMeError("--page must be 1 or greater.")
+        if hasattr(args, "page_size") and args.page_size < 1:
+            raise PlannerMeError("--page-size must be 1 or greater.")
+
+    def print_paged_table(
+        self,
+        *,
+        fetch_page: Any,
+        row_factory: Any,
+        columns: list[tuple[str, str]],
+        first_page: CollectionPage,
+        interactive: bool,
+        footer_factory: Any | None = None,
+    ) -> None:
+        page = first_page
+        use_prompt = interactive and sys.stdin.isatty() and sys.stdout.isatty()
+
+        while True:
+            if not self.print_page_header(page):
+                return
+            print_table(row_factory(page.elements), columns)
+            if footer_factory is not None:
+                print(f"\n{footer_factory(page)}")
+            if not page.has_next:
+                return
+            if not use_prompt:
+                print(f"\nMore results available. Use --page {page.offset + 1} to fetch the next page.")
+                return
+            if not self.prompt_next_page(page):
+                return
+            page = fetch_page(page.offset + 1)
+
+    @staticmethod
+    def print_page_header(page: CollectionPage) -> bool:
+        if page.total == 0:
+            print("No results.")
+            return False
+        if page.count == 0:
+            print(f"No results on page {page.offset}. Total results: {page.total}.")
+            return False
+        print(f"Page {page.offset}: showing {page.start_index}-{page.end_index} of {page.total}\n")
+        return True
+
+    def prompt_next_page(self, page: CollectionPage) -> bool:
+        prompt = f"\n-- More ({page.end_index}/{page.total}) -- Press Enter/Space for next page, q to quit "
+        print(prompt, end="", flush=True)
+        try:
+            key = self.read_single_key()
+        except KeyboardInterrupt:
+            print()
+            return False
+        print()
+        return key not in {"q", "Q"}
+
+    @staticmethod
+    def read_single_key() -> str:
+        try:
+            import termios
+            import tty
+
+            fd = sys.stdin.fileno()
+            old_settings = termios.tcgetattr(fd)
+            try:
+                tty.setraw(fd)
+                return sys.stdin.read(1)
+            finally:
+                termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+        except Exception:
+            return sys.stdin.readline()[:1]
+
+    @staticmethod
+    def page_json(page: CollectionPage, key: str, elements: list[dict[str, Any]], extra: dict[str, Any] | None = None) -> dict[str, Any]:
+        value = {
+            "page": page.offset,
+            "pageSize": page.page_size,
+            "count": page.count,
+            "total": page.total,
+            "hasNext": page.has_next,
+            key: elements,
+        }
+        if extra:
+            value.update(extra)
+        return value
 
     @staticmethod
     def parse_params(values: list[str]) -> dict[str, str]:

@@ -4,7 +4,7 @@ import datetime as dt
 import json
 from typing import Any
 
-from plannerme.client import PlannerUsClient
+from plannerme.client import CollectionPage, PlannerUsClient
 from plannerme.errors import PlannerMeError
 from plannerme.utils import (
     duration_to_hours,
@@ -60,6 +60,17 @@ class PlannerService:
             {"filters": make_filters(*filters), "sortBy": json.dumps([["name", "asc"]])},
         )
 
+    def project_page(self, *, me: bool, page_size: int, offset: int) -> CollectionPage:
+        filters = []
+        if me:
+            filters.append(filter_eq("principal", self.client.current_user_id()))
+        return self.client.collection_page(
+            "/projects",
+            {"filters": make_filters(*filters), "sortBy": json.dumps([["name", "asc"]])},
+            page_size=page_size,
+            offset=offset,
+        )
+
     def list_tasks(
         self,
         *,
@@ -84,6 +95,43 @@ class PlannerService:
 
         prefix = prefix if prefix is not None else self.client.settings.log_task_prefix
         return [task for task in tasks if str(task.get("subject", "")).startswith(prefix)]
+
+    def task_page(
+        self,
+        *,
+        project: str | None = None,
+        me: bool = False,
+        log_tasks: bool = False,
+        prefix: str | None = None,
+        page_size: int,
+        offset: int,
+    ) -> CollectionPage:
+        filters = [{"status": {"operator": "o", "values": None}}]
+        if project:
+            resolved = self.resolve_project(project)
+            filters.append(filter_eq("project", str(resolved["id"])))
+        if me:
+            filters.append(filter_eq("assigned_to", self.client.current_user_id()))
+        if log_tasks:
+            prefix = prefix if prefix is not None else self.client.settings.log_task_prefix
+            filters.append({"subject": {"operator": "~", "values": [prefix]}})
+
+        page = self.client.collection_page(
+            "/work_packages",
+            {"filters": make_filters(*filters), "sortBy": json.dumps([["id", "asc"]])},
+            page_size=page_size,
+            offset=offset,
+        )
+        if log_tasks:
+            prefix = prefix if prefix is not None else self.client.settings.log_task_prefix
+            page = CollectionPage(
+                elements=[task for task in page.elements if str(task.get("subject", "")).startswith(prefix)],
+                count=page.count,
+                total=page.total,
+                offset=page.offset,
+                page_size=page.page_size,
+            )
+        return page
 
     def resolve_log_task(self, project: str, task: str | None) -> dict[str, Any]:
         if task and task.isdigit():
@@ -153,6 +201,33 @@ class PlannerService:
                 "filters": make_filters(*filters),
                 "sortBy": json.dumps([["spent_on", "asc"], ["id", "asc"]]),
             },
+        )
+
+    def time_entry_page(
+        self,
+        *,
+        start: dt.date,
+        end: dt.date,
+        me: bool = True,
+        project: str | None = None,
+        page_size: int,
+        offset: int,
+    ) -> CollectionPage:
+        filters = [filter_date_range("spent_on", start, end)]
+        if me:
+            filters.append(filter_eq("user_id", self.client.current_user_id()))
+        if project:
+            resolved = self.resolve_project(project)
+            filters.append(filter_eq("project_id", str(resolved["id"])))
+
+        return self.client.collection_page(
+            "/time_entries",
+            {
+                "filters": make_filters(*filters),
+                "sortBy": json.dumps([["spent_on", "asc"], ["id", "asc"]]),
+            },
+            page_size=page_size,
+            offset=offset,
         )
 
     def make_time_entry_body(

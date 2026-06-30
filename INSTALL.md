@@ -127,7 +127,7 @@ plannerme config target set --daily-hours 8 --weekly-hours 40
 
 ## Run Commands
 
-Show all open tasks:
+Show the first page of open tasks:
 
 ```bash
 plannerme tasks
@@ -138,6 +138,14 @@ Show only log tasks:
 ```bash
 plannerme tasks --log-tasks
 plannerme tasks -l
+```
+
+Paged list commands fetch one API page at a time. In an interactive terminal,
+press Enter or Space for the next page, or `q` to quit. In scripts, use `--page`
+and `--page-size`:
+
+```bash
+plannerme tasks --page 2 --page-size 10 --no-pager
 ```
 
 Preview weighted weekly autolog:

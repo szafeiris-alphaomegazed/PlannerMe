@@ -32,7 +32,11 @@ class PlannerMeMcpServer:
             ),
             "plannerme_projects": (
                 "List PlannerUs projects. Use me=true to show projects involving the connected user.",
-                {"me": {"type": "boolean", "default": False}},
+                {
+                    "me": {"type": "boolean", "default": False},
+                    "page": {"type": "integer", "default": 1},
+                    "page_size": {"type": "integer", "default": 25},
+                },
                 self.projects,
             ),
             "plannerme_tasks": (
@@ -42,6 +46,8 @@ class PlannerMeMcpServer:
                     "project": {"type": "string"},
                     "log_tasks": {"type": "boolean", "default": False},
                     "prefix": {"type": "string"},
+                    "page": {"type": "integer", "default": 1},
+                    "page_size": {"type": "integer", "default": 25},
                 },
                 self.tasks,
             ),
@@ -56,6 +62,8 @@ class PlannerMeMcpServer:
                     "date": {"type": "string", "description": "YYYY-MM-DD; used with period=date or period=week_of."},
                     "project": {"type": "string"},
                     "all_users": {"type": "boolean", "default": False},
+                    "page": {"type": "integer", "default": 1},
+                    "page_size": {"type": "integer", "default": 25},
                 },
                 self.logs,
             ),
@@ -273,33 +281,39 @@ class PlannerMeMcpServer:
 
     def projects(self, arguments: JsonObject) -> Any:
         _client, service = self.app()
-        projects = service.list_projects(me=bool(arguments.get("me", False)))
-        return {"projects": service.project_rows(projects), "raw": projects}
+        page, page_size = self.page_arguments(arguments)
+        project_page = service.project_page(me=bool(arguments.get("me", False)), page_size=page_size, offset=page)
+        return self.page_result(project_page, "projects", service.project_rows(project_page.elements))
 
     def tasks(self, arguments: JsonObject) -> Any:
         _client, service = self.app()
-        tasks = service.list_tasks(
+        page, page_size = self.page_arguments(arguments)
+        task_page = service.task_page(
             project=self.optional_str(arguments, "project"),
             me=bool(arguments.get("me", False)),
             log_tasks=bool(arguments.get("log_tasks", False)),
             prefix=self.optional_str(arguments, "prefix"),
+            page_size=page_size,
+            offset=page,
         )
-        return {"tasks": service.task_rows(tasks), "raw": tasks}
+        return self.page_result(task_page, "tasks", service.task_rows(task_page.elements))
 
     def logs(self, arguments: JsonObject) -> Any:
         _client, service = self.app()
         start, end = self.date_range(arguments)
-        entries = service.list_time_entries(
+        page, page_size = self.page_arguments(arguments)
+        entry_page = service.time_entry_page(
             start=start,
             end=end,
             me=not bool(arguments.get("all_users", False)),
             project=self.optional_str(arguments, "project"),
+            page_size=page_size,
+            offset=page,
         )
         return {
             "range": {"start": start.isoformat(), "end": end.isoformat()},
-            "totalHours": service.entries_total(entries),
-            "entries": service.time_entry_rows(entries),
-            "raw": entries,
+            "pageTotalHours": service.entries_total(entry_page.elements),
+            **self.page_result(entry_page, "entries", service.time_entry_rows(entry_page.elements)),
         }
 
     def log_time(self, arguments: JsonObject) -> Any:
@@ -483,6 +497,28 @@ class PlannerMeMcpServer:
             return None
         value = str(value).strip()
         return value or None
+
+    @staticmethod
+    def page_arguments(arguments: JsonObject) -> tuple[int, int]:
+        page = int(arguments.get("page") or 1)
+        page_size = int(arguments.get("page_size") or 25)
+        if page < 1:
+            raise PlannerMeError("page must be 1 or greater.")
+        if page_size < 1:
+            raise PlannerMeError("page_size must be 1 or greater.")
+        return page, page_size
+
+    @staticmethod
+    def page_result(page: Any, key: str, rows: list[dict[str, Any]]) -> JsonObject:
+        return {
+            "page": page.offset,
+            "pageSize": page.page_size,
+            "count": page.count,
+            "total": page.total,
+            "hasNext": page.has_next,
+            key: rows,
+            "raw": page.elements,
+        }
 
     @staticmethod
     def tool_response(request_id: Any, result: Any, *, is_error: bool = False) -> JsonObject:
