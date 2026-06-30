@@ -243,7 +243,7 @@ class PlannerService:
             "spentOn": spent_on.isoformat(),
             "hours": hours,
             "comment": {"format": "plain", "raw": comment},
-            "_links": {"entity": {"href": f"/api/v3/work_packages/{self.work_package_id(work_package)}"}},
+            "_links": {"workPackage": {"href": f"/api/v3/work_packages/{self.work_package_id(work_package)}"}},
         }
         if activity_id:
             body["_links"]["activity"] = {"href": f"/api/v3/time_entries/activities/{activity_id}"}
