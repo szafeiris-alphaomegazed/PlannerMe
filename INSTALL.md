@@ -169,10 +169,28 @@ Show this week's logs:
 plannerme logs --week
 ```
 
+Show today's logs:
+
+```bash
+plannerme logs --today
+```
+
+Show one selected day:
+
+```bash
+plannerme logs --day 2026-06-30
+```
+
 Show a selected ISO week:
 
 ```bash
 plannerme logs --iso-week 2026-W27
+```
+
+Fill today if it is missing hours:
+
+```bash
+plannerme autolog PROJECT_ALIAS --today --apply
 ```
 
 ## Automations

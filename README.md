@@ -310,9 +310,14 @@ plannerme autolog clienta --week-of 2026-06-30 --apply
 Fill one specific day:
 
 ```bash
+plannerme autolog clienta --today
 plannerme autolog clienta --date 2026-06-30
+plannerme autolog clienta --day 2026-06-30
 plannerme autolog clienta --date 2026-06-30 --apply
 ```
+
+Daily autolog only fills missing time up to the daily target. If the day already
+has 8 hours, it creates nothing.
 
 If a project has multiple `LOG_...` tasks, select one:
 
@@ -462,6 +467,7 @@ Show your entries for one date:
 
 ```bash
 plannerme logs --date 2026-06-30
+plannerme logs --day 2026-06-30
 ```
 
 Show your entries for the ISO week containing a date:
@@ -625,6 +631,13 @@ through results instead of loading everything at once.
 
 ```json
 {"period": "iso_week", "week": "2026-W27"}
+```
+
+It can select today or one day with:
+
+```json
+{"period": "today"}
+{"period": "day", "date": "2026-06-30"}
 ```
 
 MCP time logging and autolog tools also use empty comments by default unless a

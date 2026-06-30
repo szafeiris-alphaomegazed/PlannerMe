@@ -52,14 +52,14 @@ class PlannerMeMcpServer:
                 self.tasks,
             ),
             "plannerme_logs": (
-                "Show logged time for today, current week, one date, or the week containing a date.",
+                "Show logged time for today, current week, one day/date, or the week containing a date.",
                 {
                     "period": {
                         "type": "string",
-                        "enum": ["today", "current_week", "date", "week_of", "iso_week"],
+                        "enum": ["today", "current_week", "date", "day", "week_of", "iso_week"],
                         "default": "today",
                     },
-                    "date": {"type": "string", "description": "YYYY-MM-DD; used with period=date or period=week_of."},
+                    "date": {"type": "string", "description": "YYYY-MM-DD; used with period=date, period=day, or period=week_of."},
                     "week": {"type": "string", "description": "YYYY-Www; used with period=iso_week."},
                     "project": {"type": "string"},
                     "all_users": {"type": "boolean", "default": False},
@@ -87,10 +87,10 @@ class PlannerMeMcpServer:
                     "project": {"type": "string", "description": "Omit to use configured weighted projects."},
                     "period": {
                         "type": "string",
-                        "enum": ["today", "current_week", "date", "week_of", "iso_week"],
+                        "enum": ["today", "current_week", "date", "day", "week_of", "iso_week"],
                         "default": "today",
                     },
-                    "date": {"type": "string", "description": "YYYY-MM-DD; used with period=date or period=week_of."},
+                    "date": {"type": "string", "description": "YYYY-MM-DD; used with period=date, period=day, or period=week_of."},
                     "week": {"type": "string", "description": "YYYY-Www; used with period=iso_week."},
                     "task": {"type": "string"},
                     "comment": {"type": "string"},
@@ -474,7 +474,7 @@ class PlannerMeMcpServer:
         period = str(arguments.get("period") or "today")
         date_value = arguments.get("date")
         today = dt.date.today()
-        if period == "date":
+        if period in {"date", "day"}:
             day = parse_date(str(date_value or today.isoformat()))
             return day, day
         if period == "week_of":
@@ -488,7 +488,7 @@ class PlannerMeMcpServer:
             return week_range(today)
         if period == "today":
             return today, today
-        raise PlannerMeError("period must be one of: today, current_week, date, week_of, iso_week.")
+        raise PlannerMeError("period must be one of: today, current_week, date, day, week_of, iso_week.")
 
     @staticmethod
     def required_str(arguments: JsonObject, key: str) -> str:
