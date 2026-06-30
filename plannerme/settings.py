@@ -24,7 +24,7 @@ class PlannerMeSettings:
 
     @classmethod
     def from_env(cls, config_manager: UserConfigManager | None = None) -> "PlannerMeSettings":
-        load_dotenv()
+        load_dotenv(os.getenv("PLANNERME_ENV_FILE", ".env"))
         config_manager = config_manager or UserConfigManager()
 
         api_key = os.getenv("PLANNERUS_API_KEY", "").strip()

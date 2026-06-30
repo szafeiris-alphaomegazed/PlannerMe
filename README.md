@@ -556,6 +556,43 @@ Example Claude Desktop config:
 }
 ```
 
+### Claude Code
+
+From a source checkout, install or refresh the editable package first:
+
+```bash
+python3 -m venv .venv
+.venv/bin/python -m pip install -e .
+```
+
+Then add the MCP server to Claude Code:
+
+```bash
+claude mcp add --scope local \
+  --transport stdio \
+  --env PLANNERME_ENV_FILE=/path/to/planner-me/.env \
+  plannerme \
+  -- /path/to/planner-me/.venv/bin/plannerme-mcp
+```
+
+For a user-wide Claude Code setup, use `--scope user` instead of
+`--scope local`.
+
+Verify:
+
+```bash
+claude mcp list
+claude mcp get plannerme
+```
+
+Then start Claude Code from the project and ask for PlannerMe actions, for
+example:
+
+```text
+Use plannerme to show my LOG_ tasks for whistleblowing-platform.
+Use plannerme to preview this week's autolog plan.
+```
+
 Available MCP tools include:
 
 - `plannerme_projects`
