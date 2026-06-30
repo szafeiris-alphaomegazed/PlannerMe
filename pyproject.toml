@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "plannerme"
+version = "0.1.0"
+description = "PlannerUs/OpenProject time logging CLI"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+authors = [
+  { name = "Stylianos Zafeiris" }
+]
+keywords = ["plannerus", "openproject", "time-tracking", "cli"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Environment :: Console",
+  "Intended Audience :: Developers",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Topic :: Office/Business :: Scheduling",
+]
+dependencies = []
+
+[project.scripts]
+plannerme = "plannerme.cli:main"
+plannerme-mcp = "plannerme.mcp_server:main"
+
+[tool.setuptools.packages.find]
+include = ["plannerme*"]
