@@ -296,6 +296,36 @@ claude mcp list
 claude mcp get plannerme
 ```
 
+### Codex CLI
+
+From a source checkout, install or refresh the editable package first:
+
+```bash
+python3 -m venv .venv
+.venv/bin/python -m pip install -e .
+```
+
+Then add the MCP server to Codex:
+
+```bash
+codex mcp add plannerme \
+  --env PLANNERME_ENV_FILE=/path/to/planner-me/.env \
+  -- /path/to/planner-me/.venv/bin/plannerme-mcp
+```
+
+Verify:
+
+```bash
+codex mcp list
+codex mcp get plannerme
+```
+
+Remove it later with:
+
+```bash
+codex mcp remove plannerme
+```
+
 The MCP server reads PlannerUs settings from the env file referenced by
 `PLANNERME_ENV_FILE`.
 
