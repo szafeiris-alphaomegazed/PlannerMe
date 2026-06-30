@@ -127,6 +127,16 @@ def parse_week_key(value: str) -> str:
     return value
 
 
+def week_range_from_key(value: str) -> tuple[dt.date, dt.date]:
+    week = parse_week_key(value)
+    year, week_number = week.split("-W", 1)
+    try:
+        start = dt.date.fromisocalendar(int(year), int(week_number), 1)
+    except ValueError as exc:
+        raise PlannerMeError(f"Invalid ISO week '{value}'.") from exc
+    return start, start + dt.timedelta(days=6)
+
+
 def parse_hours_to_duration(value: str) -> str:
     value = value.strip().upper()
     if value.startswith("PT"):

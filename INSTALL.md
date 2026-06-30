@@ -160,6 +160,21 @@ Apply it:
 plannerme autolog --week --apply
 ```
 
+Autolog creates entries with an empty comment by default. Pass `--comment` only
+when you want one.
+
+Show this week's logs:
+
+```bash
+plannerme logs --week
+```
+
+Show a selected ISO week:
+
+```bash
+plannerme logs --iso-week 2026-W27
+```
+
 ## Automations
 
 Create an automation that runs every Monday at 09:00:

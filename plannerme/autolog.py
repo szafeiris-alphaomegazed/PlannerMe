@@ -119,7 +119,7 @@ class AutologPlanner:
                     work_package,
                     hours=hours_to_duration(planned_hours),
                     spent_on=day,
-                    comment=comment if comment is not None else spec.get("comment") or "Autolog",
+                    comment=comment if comment is not None else spec.get("comment") or "",
                     activity_id=self.service.resolve_activity_id(activity if activity is not None else spec.get("activity")),
                 )
                 created = None if not apply else self.service.client.post("/time_entries", body)

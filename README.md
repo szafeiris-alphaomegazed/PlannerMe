@@ -333,6 +333,8 @@ Set a custom comment:
 plannerme autolog clienta --week --comment "Automatic weekly fill"
 ```
 
+By default, `autolog` creates time entries with an empty comment.
+
 ### Config
 
 Show the config file path:
@@ -448,6 +450,12 @@ Show your entries for the current ISO week:
 
 ```bash
 plannerme logs --week
+```
+
+Show your entries for a selected ISO week:
+
+```bash
+plannerme logs --iso-week 2026-W27
 ```
 
 Show your entries for one date:
@@ -612,6 +620,15 @@ create entries.
 The MCP list tools `plannerme_projects`, `plannerme_tasks`, and
 `plannerme_logs` accept `page` and `page_size` arguments, so AI clients can page
 through results instead of loading everything at once.
+
+`plannerme_logs` can select a week with:
+
+```json
+{"period": "iso_week", "week": "2026-W27"}
+```
+
+MCP time logging and autolog tools also use empty comments by default unless a
+model explicitly passes a `comment` argument.
 
 ## Typical Flow
 

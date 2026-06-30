@@ -22,6 +22,7 @@ from plannerme.utils import (
     parse_week_key,
     pretty_json,
     print_table,
+    week_range_from_key,
 )
 
 
@@ -175,7 +176,7 @@ class PlannerMeCLI:
                     daily_hours=args.daily_hours or client.settings.daily_hours,
                     weekly_hours=args.weekly_hours or client.settings.weekly_hours,
                     task=args.task,
-                    comment=args.comment or "Autolog",
+                    comment=args.comment or "",
                     activity=args.activity,
                     apply=args.apply,
                 )
@@ -430,6 +431,7 @@ class PlannerMeCLI:
         logs_range = logs_parser.add_mutually_exclusive_group()
         logs_range.add_argument("--today", action="store_true", help="Show today's log entries. This is the default.")
         logs_range.add_argument("--week", action="store_true", help="Show the current ISO week.")
+        logs_range.add_argument("--iso-week", help="Show a specific ISO week, YYYY-Www.")
         logs_range.add_argument("--date", help="Show one date, YYYY-MM-DD.")
         logs_range.add_argument("--week-of", help="Show the ISO week containing this date, YYYY-MM-DD.")
         logs_parser.add_argument("--project", help="Limit to a project id, identifier, name, or alias.")
@@ -668,6 +670,8 @@ class PlannerMeCLI:
             from plannerme.utils import week_range
 
             return week_range(parse_date(args.week_of))
+        if getattr(args, "iso_week", None):
+            return week_range_from_key(args.iso_week)
         if args.week:
             from plannerme.utils import week_range
 

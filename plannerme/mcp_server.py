@@ -12,7 +12,7 @@ from plannerme.errors import PlannerMeError
 from plannerme.services import PlannerService
 from plannerme.settings import PlannerMeSettings
 from plannerme.user_config import UserConfigManager
-from plannerme.utils import coerce_positive_float, parse_date, parse_week_key, pretty_json, week_range
+from plannerme.utils import coerce_positive_float, parse_date, parse_week_key, pretty_json, week_range, week_range_from_key
 
 
 JsonObject = dict[str, Any]
@@ -56,10 +56,11 @@ class PlannerMeMcpServer:
                 {
                     "period": {
                         "type": "string",
-                        "enum": ["today", "current_week", "date", "week_of"],
+                        "enum": ["today", "current_week", "date", "week_of", "iso_week"],
                         "default": "today",
                     },
                     "date": {"type": "string", "description": "YYYY-MM-DD; used with period=date or period=week_of."},
+                    "week": {"type": "string", "description": "YYYY-Www; used with period=iso_week."},
                     "project": {"type": "string"},
                     "all_users": {"type": "boolean", "default": False},
                     "page": {"type": "integer", "default": 1},
@@ -86,10 +87,11 @@ class PlannerMeMcpServer:
                     "project": {"type": "string", "description": "Omit to use configured weighted projects."},
                     "period": {
                         "type": "string",
-                        "enum": ["today", "current_week", "date", "week_of"],
+                        "enum": ["today", "current_week", "date", "week_of", "iso_week"],
                         "default": "today",
                     },
                     "date": {"type": "string", "description": "YYYY-MM-DD; used with period=date or period=week_of."},
+                    "week": {"type": "string", "description": "YYYY-Www; used with period=iso_week."},
                     "task": {"type": "string"},
                     "comment": {"type": "string"},
                     "activity": {"type": "string"},
@@ -346,7 +348,7 @@ class PlannerMeMcpServer:
                 daily_hours=daily_hours,
                 weekly_hours=weekly_hours,
                 task=self.optional_str(arguments, "task"),
-                comment=str(arguments.get("comment") or "Autolog"),
+                comment=str(arguments.get("comment") or ""),
                 activity=self.optional_str(arguments, "activity"),
                 apply=bool(arguments.get("apply", False)),
             )
@@ -477,11 +479,16 @@ class PlannerMeMcpServer:
             return day, day
         if period == "week_of":
             return week_range(parse_date(str(date_value or today.isoformat())))
+        if period == "iso_week":
+            week_value = arguments.get("week")
+            if not week_value:
+                raise PlannerMeError("week is required when period is iso_week.")
+            return week_range_from_key(str(week_value))
         if period == "current_week":
             return week_range(today)
         if period == "today":
             return today, today
-        raise PlannerMeError("period must be one of: today, current_week, date, week_of.")
+        raise PlannerMeError("period must be one of: today, current_week, date, week_of, iso_week.")
 
     @staticmethod
     def required_str(arguments: JsonObject, key: str) -> str:
