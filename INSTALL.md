@@ -226,6 +226,8 @@ To publish to PyPI, configure PyPI Trusted Publishing for this GitHub
 repository, environment `pypi`, then create a GitHub release such as `v0.1.0`.
 The publish workflow uses `pypa/gh-action-pypi-publish`.
 
+See `PUBLISH.md` for the full step-by-step publishing checklist.
+
 ## Uninstall
 
 If installed editably in a virtualenv:
