@@ -316,7 +316,7 @@ class PlannerService:
                     "date": entry.get("spentOn"),
                     "hours": format_hours(hours),
                     "project": link_title(entry, "project"),
-                    "task": link_title(entry, "entity"),
+                    "task": link_title(entry, "workPackage") or link_title(entry, "entity"),
                     "activity": link_title(entry, "activity"),
                     "comment": entry.get("comment", {}).get("raw", ""),
                 }
