@@ -6,7 +6,7 @@ from typing import Any
 from plannerme.errors import PlannerMeError
 from plannerme.services import PlannerService
 from plannerme.user_config import UserConfigManager
-from plannerme.utils import format_hours, hours_to_duration, parse_date, week_key, week_range
+from plannerme.utils import format_hours, hours_to_duration, parse_date, week_key, week_range, week_range_from_key
 
 
 class AutologPlanner:
@@ -20,6 +20,8 @@ class AutologPlanner:
             return day, day
         if getattr(args, "week_of", None):
             return week_range(parse_date(args.week_of))
+        if getattr(args, "iso_week", None):
+            return week_range_from_key(args.iso_week)
         if getattr(args, "week", False):
             return week_range(dt.date.today())
         today = dt.date.today()

@@ -30,6 +30,11 @@ class PlannerMeMcpServer:
                 {},
                 self.ping,
             ),
+            "plannerme_me": (
+                "Return the connected PlannerUs user object.",
+                {},
+                self.me,
+            ),
             "plannerme_projects": (
                 "List PlannerUs projects. Use me=true to show projects involving the connected user.",
                 {
@@ -101,10 +106,54 @@ class PlannerMeMcpServer:
                 },
                 self.autolog,
             ),
+            "plannerme_activities": (
+                "List time-entry activities visible from the PlannerUs schema.",
+                {},
+                self.activities,
+            ),
+            "plannerme_raw_get": (
+                "GET a raw PlannerUs API v3 path.",
+                {
+                    "path": {"type": "string"},
+                    "params": {"type": "object", "additionalProperties": {"type": "string"}},
+                },
+                self.raw_get,
+            ),
+            "plannerme_raw_post": (
+                "POST a raw JSON body to a PlannerUs API v3 path.",
+                {
+                    "path": {"type": "string"},
+                    "body": {"type": "object"},
+                },
+                self.raw_post,
+            ),
+            "plannerme_raw_patch": (
+                "PATCH a raw JSON body to a PlannerUs API v3 path.",
+                {
+                    "path": {"type": "string"},
+                    "body": {"type": "object"},
+                },
+                self.raw_patch,
+            ),
+            "plannerme_raw_delete": (
+                "DELETE a raw PlannerUs API v3 path.",
+                {"path": {"type": "string"}},
+                self.raw_delete,
+            ),
+            "plannerme_config_path": (
+                "Return the PlannerMe config file path.",
+                {},
+                self.config_path,
+            ),
             "plannerme_config_show": (
                 "Return the ~/.plannerme/config.json content, with defaults filled in.",
                 {},
                 self.config_show,
+            ),
+            "plannerme_config_targets": (
+                "Return configured daily and weekly hour targets.",
+                {},
+                self.config_targets,
             ),
             "plannerme_config_init": (
                 "Create ~/.plannerme/config.json if needed and return its path and content.",
@@ -118,6 +167,11 @@ class PlannerMeMcpServer:
                     "weekly_hours": {"type": "number"},
                 },
                 self.config_set_targets,
+            ),
+            "plannerme_config_projects": (
+                "List configured project aliases used by weighted autolog.",
+                {},
+                self.config_projects,
             ),
             "plannerme_config_add_project": (
                 "Add or replace a configured project alias used by weighted autolog.",
@@ -149,6 +203,11 @@ class PlannerMeMcpServer:
                 {"alias": {"type": "string"}},
                 self.config_remove_project,
             ),
+            "plannerme_config_week_weights": (
+                "List weekly project weight overrides. Optionally pass week as YYYY-Www.",
+                {"week": {"type": "string"}},
+                self.config_week_weights,
+            ),
             "plannerme_config_set_week_weight": (
                 "Set a project weight override for an ISO week such as 2026-W27.",
                 {
@@ -166,6 +225,11 @@ class PlannerMeMcpServer:
                 },
                 self.config_clear_week_weight,
             ),
+            "plannerme_config_automations": (
+                "List saved automations.",
+                {},
+                self.config_automations,
+            ),
             "plannerme_config_add_automation": (
                 "Save a weekly autolog automation in config. Use cron/apply tools separately to install/run it.",
                 {
@@ -178,6 +242,11 @@ class PlannerMeMcpServer:
                     "apply": {"type": "boolean", "default": False},
                 },
                 self.config_add_automation,
+            ),
+            "plannerme_config_remove_automation": (
+                "Remove a saved automation from config.",
+                {"name": {"type": "string"}},
+                self.config_remove_automation,
             ),
             "plannerme_config_automation_cron": (
                 "Return the cron line for a saved automation.",
@@ -248,12 +317,17 @@ class PlannerMeMcpServer:
         definitions = []
         required_by_tool = {
             "plannerme_log_time": ["project", "hours"],
+            "plannerme_raw_get": ["path"],
+            "plannerme_raw_post": ["path"],
+            "plannerme_raw_patch": ["path"],
+            "plannerme_raw_delete": ["path"],
             "plannerme_config_add_project": ["alias", "ref"],
             "plannerme_config_set_project": ["alias"],
             "plannerme_config_remove_project": ["alias"],
             "plannerme_config_set_week_weight": ["alias", "week", "weight"],
             "plannerme_config_clear_week_weight": ["alias", "week"],
             "plannerme_config_add_automation": ["name"],
+            "plannerme_config_remove_automation": ["name"],
             "plannerme_config_automation_cron": ["name"],
             "plannerme_config_install_automation": ["name"],
         }
@@ -280,6 +354,10 @@ class PlannerMeMcpServer:
     def ping(self, _: JsonObject) -> Any:
         client, _service = self.app()
         return client.ping()
+
+    def me(self, _: JsonObject) -> Any:
+        client, _service = self.app()
+        return client.get("/users/me")
 
     def projects(self, arguments: JsonObject) -> Any:
         _client, service = self.app()
@@ -363,8 +441,38 @@ class PlannerMeMcpServer:
             apply=bool(arguments.get("apply", False)),
         )
 
+    def activities(self, _: JsonObject) -> Any:
+        _client, service = self.app()
+        return {"activities": service.list_activities()}
+
+    def raw_get(self, arguments: JsonObject) -> Any:
+        client, _service = self.app()
+        params = arguments.get("params") or {}
+        if not isinstance(params, dict):
+            raise PlannerMeError("params must be an object of key/value strings.")
+        return client.get(self.required_str(arguments, "path"), {str(key): str(value) for key, value in params.items()})
+
+    def raw_post(self, arguments: JsonObject) -> Any:
+        client, _service = self.app()
+        return client.post(self.required_str(arguments, "path"), arguments.get("body"))
+
+    def raw_patch(self, arguments: JsonObject) -> Any:
+        client, _service = self.app()
+        return client.patch(self.required_str(arguments, "path"), arguments.get("body"))
+
+    def raw_delete(self, arguments: JsonObject) -> Any:
+        client, _service = self.app()
+        return client.delete(self.required_str(arguments, "path"))
+
+    def config_path(self, _: JsonObject) -> Any:
+        return {"path": str(self.config_manager.path)}
+
     def config_show(self, _: JsonObject) -> Any:
         return {"path": str(self.config_manager.path), "config": self.config_manager.load()}
+
+    def config_targets(self, _: JsonObject) -> Any:
+        config = self.config_manager.load()
+        return {"path": str(self.config_manager.path), "targets": config["targets"]}
 
     def config_init(self, _: JsonObject) -> Any:
         config = self.config_manager.load()
@@ -379,6 +487,14 @@ class PlannerMeMcpServer:
             config["targets"]["weeklyHours"] = coerce_positive_float(arguments["weekly_hours"], "weekly_hours")
         self.config_manager.save(config)
         return {"path": str(self.config_manager.path), "targets": config["targets"]}
+
+    def config_projects(self, _: JsonObject) -> Any:
+        config = self.config_manager.load()
+        return {
+            "path": str(self.config_manager.path),
+            "projects": self.config_manager.project_rows(config),
+            "raw": config["projects"],
+        }
 
     def config_add_project(self, arguments: JsonObject) -> Any:
         config = self.config_manager.load()
@@ -419,6 +535,15 @@ class PlannerMeMcpServer:
         self.config_manager.save(config)
         return {"path": str(self.config_manager.path), "removed": alias}
 
+    def config_week_weights(self, arguments: JsonObject) -> Any:
+        config = self.config_manager.load()
+        week = self.optional_str(arguments, "week")
+        return {
+            "path": str(self.config_manager.path),
+            "weights": self.config_manager.weight_rows(config, week),
+            "raw": config["weeks"] if week is None else {week: config["weeks"].get(parse_week_key(week), {})},
+        }
+
     def config_set_week_weight(self, arguments: JsonObject) -> Any:
         config = self.config_manager.load()
         alias = self.required_str(arguments, "alias")
@@ -440,6 +565,14 @@ class PlannerMeMcpServer:
         self.config_manager.save(config)
         return {"path": str(self.config_manager.path), "week": week, "cleared": alias}
 
+    def config_automations(self, _: JsonObject) -> Any:
+        config = self.config_manager.load()
+        return {
+            "path": str(self.config_manager.path),
+            "automations": self.config_manager.automation_rows(config),
+            "raw": config["automations"],
+        }
+
     def config_add_automation(self, arguments: JsonObject) -> Any:
         config = self.config_manager.load()
         name = self.required_str(arguments, "name")
@@ -455,6 +588,13 @@ class PlannerMeMcpServer:
         config["automations"][name] = automation
         self.config_manager.save(config)
         return {"path": str(self.config_manager.path), "automation": {name: automation}}
+
+    def config_remove_automation(self, arguments: JsonObject) -> Any:
+        config = self.config_manager.load()
+        name = self.required_str(arguments, "name")
+        config["automations"].pop(name, None)
+        self.config_manager.save(config)
+        return {"path": str(self.config_manager.path), "removed": name}
 
     def config_automation_cron(self, arguments: JsonObject) -> Any:
         config = self.config_manager.load()

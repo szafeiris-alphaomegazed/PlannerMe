@@ -154,6 +154,12 @@ Preview weighted weekly autolog:
 plannerme autolog --week
 ```
 
+Preview a selected ISO week:
+
+```bash
+plannerme autolog --iso-week 2026-W27
+```
+
 Apply it:
 
 ```bash
@@ -282,8 +288,9 @@ claude mcp get plannerme
 The MCP server reads PlannerUs settings from the env file referenced by
 `PLANNERME_ENV_FILE`.
 
-The MCP server exposes tools for projects, tasks, logs, manual time logging,
-autolog previews/apply, config projects, weekly weights, and automations.
+The MCP server mirrors the CLI command groups: account/API checks, projects,
+tasks, logs, manual time logging, autolog previews/apply, config management,
+weekly weights, automations, activities, and raw API escape-hatch tools.
 Time-writing tools default to preview/dry-run unless explicitly told to apply.
 
 ## Publishing From GitHub

@@ -300,6 +300,13 @@ plannerme autolog clienta --week
 plannerme autolog clienta --week --apply
 ```
 
+Fill a selected ISO week:
+
+```bash
+plannerme autolog clienta --iso-week 2026-W27
+plannerme autolog clienta --iso-week 2026-W27 --apply
+```
+
 Fill the ISO week containing a specific date:
 
 ```bash
@@ -607,17 +614,13 @@ Use plannerme to show my LOG_ tasks for whistleblowing-platform.
 Use plannerme to preview this week's autolog plan.
 ```
 
-Available MCP tools include:
+Available MCP tools mirror the CLI command groups:
 
-- `plannerme_projects`
-- `plannerme_tasks`
-- `plannerme_logs`
-- `plannerme_log_time`
-- `plannerme_autolog`
-- `plannerme_config_show`
-- `plannerme_config_add_project`
-- `plannerme_config_set_week_weight`
-- `plannerme_config_add_automation`
+- API/account: `plannerme_ping`, `plannerme_me`, `plannerme_activities`
+- Work: `plannerme_projects`, `plannerme_tasks`, `plannerme_logs`, `plannerme_log_time`, `plannerme_autolog`
+- Config: `plannerme_config_path`, `plannerme_config_show`, `plannerme_config_targets`, `plannerme_config_projects`, `plannerme_config_week_weights`, `plannerme_config_automations`
+- Config writes: `plannerme_config_init`, `plannerme_config_set_targets`, `plannerme_config_add_project`, `plannerme_config_set_project`, `plannerme_config_remove_project`, `plannerme_config_set_week_weight`, `plannerme_config_clear_week_weight`, `plannerme_config_add_automation`, `plannerme_config_remove_automation`, `plannerme_config_automation_cron`, `plannerme_config_install_automation`
+- Raw API escape hatch: `plannerme_raw_get`, `plannerme_raw_post`, `plannerme_raw_patch`, `plannerme_raw_delete`
 
 `plannerme_log_time` defaults to `dry_run: true`, and `plannerme_autolog`
 defaults to `apply: false`, so models preview writes unless explicitly asked to

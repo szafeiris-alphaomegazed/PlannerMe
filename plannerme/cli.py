@@ -455,6 +455,7 @@ class PlannerMeCLI:
         autolog_range_group.add_argument("--today", action="store_true", help="Fill today up to the daily target.")
         autolog_range_group.add_argument("--date", "--day", dest="date", help="Fill one date/day up to the daily target, YYYY-MM-DD.")
         autolog_range_group.add_argument("--week", action="store_true", help="Fill the current ISO week.")
+        autolog_range_group.add_argument("--iso-week", help="Fill a specific ISO week, YYYY-Www.")
         autolog_range_group.add_argument("--week-of", help="Fill the ISO week containing this date, YYYY-MM-DD.")
         autolog_parser.add_argument("--task", help="Work package id or text to match against LOG_ task subject.")
         autolog_parser.add_argument("--comment", help="Time entry comment.")
