@@ -5,6 +5,7 @@ import json
 from typing import Any
 
 from plannerme.client import CollectionPage, PlannerUsClient
+from plannerme.constants import DEFAULT_DAILY_HOURS, DEFAULT_WEEKLY_HOURS
 from plannerme.errors import PlannerMeError
 from plannerme.utils import (
     duration_to_hours,
@@ -259,11 +260,14 @@ class PlannerService:
         comment: str,
         activity: str | None,
         dry_run: bool,
+        force: bool = False,
     ) -> dict[str, Any]:
         work_package = self.resolve_log_task(project, task)
+        duration = parse_hours_to_duration(hours)
+        self.ensure_time_limits(spent_on=spent_on, hours=duration, force=force)
         body = self.make_time_entry_body(
             work_package,
-            hours=parse_hours_to_duration(hours),
+            hours=duration,
             spent_on=spent_on,
             comment=comment,
             activity_id=self.resolve_activity_id(activity),
@@ -271,6 +275,44 @@ class PlannerService:
         if dry_run:
             return {"dryRun": True, "workPackage": work_package.get("subject"), "body": body}
         return self.client.post("/time_entries", body)
+
+    def ensure_time_limits(
+        self,
+        *,
+        spent_on: dt.date,
+        hours: str,
+        force: bool,
+        daily_limit: float = DEFAULT_DAILY_HOURS,
+        weekly_limit: float = DEFAULT_WEEKLY_HOURS,
+    ) -> None:
+        if force:
+            return
+
+        new_hours = duration_to_hours(hours)
+        week_start = spent_on - dt.timedelta(days=spent_on.weekday())
+        week_end = week_start + dt.timedelta(days=6)
+        week_entries = self.list_time_entries(start=week_start, end=week_end, me=True)
+        day_existing = self.entries_total_for_date(week_entries, spent_on)
+        week_existing = self.entries_total(week_entries)
+        day_total = day_existing + new_hours
+        week_total = week_existing + new_hours
+
+        if day_total - daily_limit > 1e-9:
+            raise PlannerMeError(
+                "Refusing to log "
+                f"{format_hours(new_hours)}h on {spent_on.isoformat()}: "
+                f"the day would become {format_hours(day_total)}h, above the "
+                f"{format_hours(daily_limit)}h/day limit. "
+                "Re-run with --force if you really want to override this guard."
+            )
+        if week_total - weekly_limit > 1e-9:
+            raise PlannerMeError(
+                "Refusing to log "
+                f"{format_hours(new_hours)}h in ISO week {week_start.isocalendar().year}-W{week_start.isocalendar().week:02d}: "
+                f"the week would become {format_hours(week_total)}h, above the "
+                f"{format_hours(weekly_limit)}h/week limit. "
+                "Re-run with --force if you really want to override this guard."
+            )
 
     @staticmethod
     def work_package_id(value: dict[str, Any]) -> str:

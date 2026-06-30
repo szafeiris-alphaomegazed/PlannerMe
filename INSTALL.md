@@ -169,6 +169,14 @@ plannerme autolog --week --apply
 Autolog creates entries with an empty comment by default. Pass `--comment` only
 when you want one.
 
+PlannerMe refuses to create time entries above 8 hours/day or 40 hours/week.
+Use `--force` only when you really want to override that guard:
+
+```bash
+plannerme log PROJECT_ALIAS 1 --date 2026-06-30 --force
+plannerme autolog PROJECT_ALIAS --week --daily-hours 9 --weekly-hours 45 --force --apply
+```
+
 Show this week's logs:
 
 ```bash
@@ -291,7 +299,8 @@ The MCP server reads PlannerUs settings from the env file referenced by
 The MCP server mirrors the CLI command groups: account/API checks, projects,
 tasks, logs, manual time logging, autolog previews/apply, config management,
 weekly weights, automations, activities, and raw API escape-hatch tools.
-Time-writing tools default to preview/dry-run unless explicitly told to apply.
+Time-writing tools default to preview/dry-run unless explicitly told to apply,
+and enforce the 8h/day and 40h/week guard unless `force: true` is passed.
 
 ## Publishing From GitHub
 

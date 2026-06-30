@@ -3,6 +3,7 @@ from __future__ import annotations
 import datetime as dt
 from typing import Any
 
+from plannerme.constants import DEFAULT_DAILY_HOURS, DEFAULT_WEEKLY_HOURS
 from plannerme.errors import PlannerMeError
 from plannerme.services import PlannerService
 from plannerme.user_config import UserConfigManager
@@ -39,8 +40,9 @@ class AutologPlanner:
         comment: str,
         activity: str | None,
         apply: bool,
+        force: bool = False,
     ) -> dict[str, Any]:
-        self._validate_targets(daily_hours, weekly_hours)
+        self._validate_targets(daily_hours, weekly_hours, force)
         work_package = self.service.resolve_log_task(project, task)
         activity_id = self.service.resolve_activity_id(activity)
         week_start, week_end = week_range(start)
@@ -92,8 +94,9 @@ class AutologPlanner:
         comment: str | None,
         activity: str | None,
         apply: bool,
+        force: bool = False,
     ) -> dict[str, Any]:
-        self._validate_targets(daily_hours, weekly_hours)
+        self._validate_targets(daily_hours, weekly_hours, force)
         config = self.service.client.settings.user_config or self.config_manager.default()
         key = week_key(start)
         specs = self.config_manager.project_specs(config, key)
@@ -201,9 +204,21 @@ class AutologPlanner:
         ]
 
     @staticmethod
-    def _validate_targets(daily_hours: float, weekly_hours: float) -> None:
+    def _validate_targets(daily_hours: float, weekly_hours: float, force: bool = False) -> None:
         if daily_hours <= 0 or weekly_hours <= 0:
             raise PlannerMeError("--daily-hours and --weekly-hours must be greater than zero.")
+        if not force and daily_hours > DEFAULT_DAILY_HOURS:
+            raise PlannerMeError(
+                f"Refusing to autolog with {format_hours(daily_hours)}h/day: "
+                f"the hard limit is {format_hours(DEFAULT_DAILY_HOURS)}h/day. "
+                "Re-run with --force if you really want to override this guard."
+            )
+        if not force and weekly_hours > DEFAULT_WEEKLY_HOURS:
+            raise PlannerMeError(
+                f"Refusing to autolog with {format_hours(weekly_hours)}h/week: "
+                f"the hard limit is {format_hours(DEFAULT_WEEKLY_HOURS)}h/week. "
+                "Re-run with --force if you really want to override this guard."
+            )
 
     @staticmethod
     def _covered_row(day: dt.date, existing_day: float) -> dict[str, Any]:

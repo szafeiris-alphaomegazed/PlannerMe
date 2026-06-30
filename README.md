@@ -254,6 +254,19 @@ Force a time-entry activity id:
 plannerme log clienta 2 --activity 1
 ```
 
+PlannerMe refuses to create time entries that would put your user above 8 hours
+for a day or 40 hours for an ISO week:
+
+```bash
+plannerme log clienta 1 --date 2026-06-30
+```
+
+Override the guard only when you really mean it:
+
+```bash
+plannerme log clienta 1 --date 2026-06-30 --force
+```
+
 You can also put the default activity in `.env`:
 
 ```env
@@ -270,7 +283,8 @@ If no activity is set, PlannerUs will use its default activity when available.
 - `PLANNERUS_WEEKLY_HOURS=40`
 
 It checks your existing time entries first. It will not add more time for a day
-that already has 8 hours, and it will not push the week above 40 hours.
+that already has 8 hours, and it will not push the week above 40 hours unless
+you explicitly pass `--force`.
 
 Autolog previews by default:
 
@@ -337,6 +351,12 @@ Override the targets for one run:
 
 ```bash
 plannerme autolog clienta --week --daily-hours 7.5 --weekly-hours 37.5
+```
+
+Targets above 8 hours/day or 40 hours/week require `--force`:
+
+```bash
+plannerme autolog clienta --week --daily-hours 9 --weekly-hours 45 --force
 ```
 
 Set a custom comment:
@@ -535,6 +555,9 @@ POST:
 plannerme post /some_path --json '{"key":"value"}'
 ```
 
+Raw `post /time_entries` is also protected by the 8h/day and 40h/week guard.
+Use `--force` to override it.
+
 PATCH:
 
 ```bash
@@ -625,6 +648,9 @@ Available MCP tools mirror the CLI command groups:
 `plannerme_log_time` defaults to `dry_run: true`, and `plannerme_autolog`
 defaults to `apply: false`, so models preview writes unless explicitly asked to
 create entries.
+
+MCP time-writing tools also enforce the 8h/day and 40h/week guard unless a tool
+call passes `force: true`.
 
 The MCP list tools `plannerme_projects`, `plannerme_tasks`, and
 `plannerme_logs` accept `page` and `page_size` arguments, so AI clients can page

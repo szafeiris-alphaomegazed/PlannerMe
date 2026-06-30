@@ -149,6 +149,7 @@ class PlannerMeCLI:
                 comment=args.comment,
                 activity=args.activity,
                 dry_run=args.dry_run,
+                force=args.force,
             )
             if args.json or args.dry_run:
                 print(pretty_json(result))
@@ -179,6 +180,7 @@ class PlannerMeCLI:
                     comment=args.comment or "",
                     activity=args.activity,
                     apply=args.apply,
+                    force=args.force,
                 )
             else:
                 result = planner.plan_configured_projects(
@@ -190,6 +192,7 @@ class PlannerMeCLI:
                     comment=args.comment,
                     activity=args.activity,
                     apply=args.apply,
+                    force=args.force,
                 )
             self.print_autolog_result(result, args.json, args.apply)
             return 0
@@ -204,7 +207,9 @@ class PlannerMeCLI:
             print(pretty_json(client.get(args.path, self.parse_params(args.param))))
             return 0
         if args.command == "post":
-            print(pretty_json(client.post(args.path, self.parse_json_body(args.json))))
+            body = self.parse_json_body(args.json)
+            self.enforce_raw_time_entry_limits(args.path, body, service, args.force)
+            print(pretty_json(client.post(args.path, body)))
             return 0
         if args.command == "patch":
             print(pretty_json(client.patch(args.path, self.parse_json_body(args.json))))
@@ -447,6 +452,7 @@ class PlannerMeCLI:
         log_parser.add_argument("--comment", default="", help="Time entry comment.")
         log_parser.add_argument("--activity", help="Time-entry activity id.")
         log_parser.add_argument("--dry-run", action="store_true", help="Print the request body without creating it.")
+        log_parser.add_argument("--force", action="store_true", help="Allow logging beyond the 8h/day or 40h/week guard.")
         log_parser.add_argument("--json", action="store_true", help="Print raw JSON response.")
 
         autolog_parser = subparsers.add_parser("autolog", help="Fill missing time up to configured daily/weekly targets.")
@@ -463,6 +469,7 @@ class PlannerMeCLI:
         autolog_parser.add_argument("--daily-hours", type=float, help="Daily target.")
         autolog_parser.add_argument("--weekly-hours", type=float, help="Weekly target.")
         autolog_parser.add_argument("--apply", action="store_true", help="Actually create entries. Without this, autolog only previews the plan.")
+        autolog_parser.add_argument("--force", action="store_true", help="Allow targets above the 8h/day or 40h/week guard.")
         autolog_parser.add_argument("--json", action="store_true", help="Print raw JSON response.")
 
         activities_parser = subparsers.add_parser("activities", help="Show time-entry activities.")
@@ -547,6 +554,8 @@ class PlannerMeCLI:
             method_parser = subparsers.add_parser(method, help=f"{method.upper()} an API v3 path.")
             method_parser.add_argument("path")
             method_parser.add_argument("--json", default=None, metavar="BODY")
+            if method == "post":
+                method_parser.add_argument("--force", action="store_true", help="Allow raw time-entry creation beyond the 8h/day or 40h/week guard.")
         delete_parser = subparsers.add_parser("delete", help="DELETE an API v3 path.")
         delete_parser.add_argument("path")
 
@@ -661,6 +670,19 @@ class PlannerMeCLI:
             return json.loads(value)
         except json.JSONDecodeError as exc:
             raise PlannerMeError(f"Invalid JSON body: {exc}") from exc
+
+    @staticmethod
+    def enforce_raw_time_entry_limits(path: str, body: Any | None, service: PlannerService, force: bool) -> None:
+        clean_path = path.rstrip("/")
+        if clean_path not in {"/time_entries", "/api/v3/time_entries", "time_entries", "api/v3/time_entries"}:
+            return
+        if not isinstance(body, dict):
+            return
+        spent_on = body.get("spentOn")
+        hours = body.get("hours")
+        if not spent_on or not hours:
+            return
+        service.ensure_time_limits(spent_on=parse_date(str(spent_on)), hours=str(hours), force=force)
 
     @staticmethod
     def log_range(args: argparse.Namespace) -> tuple[dt.date, dt.date]:

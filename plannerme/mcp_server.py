@@ -83,6 +83,7 @@ class PlannerMeMcpServer:
                     "comment": {"type": "string", "default": ""},
                     "activity": {"type": "string"},
                     "dry_run": {"type": "boolean", "default": True},
+                    "force": {"type": "boolean", "default": False},
                 },
                 self.log_time,
             ),
@@ -103,6 +104,7 @@ class PlannerMeMcpServer:
                     "daily_hours": {"type": "number"},
                     "weekly_hours": {"type": "number"},
                     "apply": {"type": "boolean", "default": False},
+                    "force": {"type": "boolean", "default": False},
                 },
                 self.autolog,
             ),
@@ -124,6 +126,7 @@ class PlannerMeMcpServer:
                 {
                     "path": {"type": "string"},
                     "body": {"type": "object"},
+                    "force": {"type": "boolean", "default": False},
                 },
                 self.raw_post,
             ),
@@ -409,6 +412,7 @@ class PlannerMeMcpServer:
             comment=str(arguments.get("comment") or ""),
             activity=self.optional_str(arguments, "activity"),
             dry_run=bool(arguments.get("dry_run", True)),
+            force=bool(arguments.get("force", False)),
         )
 
     def autolog(self, arguments: JsonObject) -> Any:
@@ -429,6 +433,7 @@ class PlannerMeMcpServer:
                 comment=str(arguments.get("comment") or ""),
                 activity=self.optional_str(arguments, "activity"),
                 apply=bool(arguments.get("apply", False)),
+                force=bool(arguments.get("force", False)),
             )
         return planner.plan_configured_projects(
             start=start,
@@ -439,6 +444,7 @@ class PlannerMeMcpServer:
             comment=self.optional_str(arguments, "comment"),
             activity=self.optional_str(arguments, "activity"),
             apply=bool(arguments.get("apply", False)),
+            force=bool(arguments.get("force", False)),
         )
 
     def activities(self, _: JsonObject) -> Any:
@@ -453,8 +459,11 @@ class PlannerMeMcpServer:
         return client.get(self.required_str(arguments, "path"), {str(key): str(value) for key, value in params.items()})
 
     def raw_post(self, arguments: JsonObject) -> Any:
-        client, _service = self.app()
-        return client.post(self.required_str(arguments, "path"), arguments.get("body"))
+        client, service = self.app()
+        path = self.required_str(arguments, "path")
+        body = arguments.get("body")
+        self.enforce_raw_time_entry_limits(path, body, service, bool(arguments.get("force", False)))
+        return client.post(path, body)
 
     def raw_patch(self, arguments: JsonObject) -> Any:
         client, _service = self.app()
@@ -666,6 +675,19 @@ class PlannerMeMcpServer:
             key: rows,
             "raw": page.elements,
         }
+
+    @staticmethod
+    def enforce_raw_time_entry_limits(path: str, body: Any | None, service: PlannerService, force: bool) -> None:
+        clean_path = path.rstrip("/")
+        if clean_path not in {"/time_entries", "/api/v3/time_entries", "time_entries", "api/v3/time_entries"}:
+            return
+        if not isinstance(body, dict):
+            return
+        spent_on = body.get("spentOn")
+        hours = body.get("hours")
+        if not spent_on or not hours:
+            return
+        service.ensure_time_limits(spent_on=parse_date(str(spent_on)), hours=str(hours), force=force)
 
     @staticmethod
     def tool_response(request_id: Any, result: Any, *, is_error: bool = False) -> JsonObject:
